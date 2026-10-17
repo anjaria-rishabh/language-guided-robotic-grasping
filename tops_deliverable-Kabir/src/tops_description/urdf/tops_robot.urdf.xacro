@@ -1,0 +1,154 @@
+<?xml version="1.0"?>
+<!--
+  The complete TOPS robot: the real Franka Emika Panda (arm + Franka Hand,
+  official meshes and data), a wrist F/T measurement, the ros2_control
+  wiring, standing on a table, with a camera looking at it.
+
+  Generate a plain URDF (for Pinocchio, KDL offline checks, or just to read
+  what the macros expanded to):
+
+    xacro urdf/tops_robot.urdf.xacro controllers_config:=/dev/null > /tmp/tops.urdf
+
+  Doing that and reading the output is faster than guessing why a change
+  did not take effect.
+-->
+<robot name="tops_panda" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="prefix"             default="panda_" />
+  <xacro:arg name="use_sim"            default="true" />
+  <xacro:arg name="controllers_config" default="" />
+  <xacro:arg name="with_table"         default="true" />
+  <xacro:arg name="with_camera"        default="true" />
+
+  <xacro:include filename="$(find tops_description)/urdf/inertials.xacro" />
+  <xacro:include filename="$(find tops_description)/urdf/panda_arm.xacro" />
+  <xacro:include filename="$(find tops_description)/urdf/panda_hand.xacro" />
+  <xacro:include filename="$(find tops_description)/urdf/panda_ros2_control.xacro" />
+
+  <xacro:property name="prefix" value="$(arg prefix)" />
+
+  <!-- The home configuration. Elbow up, wrist looking down at the table.
+       This doubles as the null-space posture target q_nominal in the
+       controller config: the redundancy is used to stay near THIS pose. -->
+  <xacro:property name="q_home" value="${[0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]}" />
+
+  <link name="world" />
+
+  <!-- ===================== the table ============================== -->
+  <!-- 1 m x 1 m tabletop at 0.75 m, per the scope statement. The arm is
+       mounted on it, at the back edge, so the whole 1 m workspace is
+       reachable without the elbow hitting the surface. -->
+  <xacro:if value="$(arg with_table)">
+    <link name="table">
+      <visual>
+        <origin xyz="0.35 0 0.7375" rpy="0 0 0" />
+        <geometry><box size="1.0 1.0 0.025" /></geometry>
+        <material name="wood"><color rgba="0.72 0.60 0.44 1.0" /></material>
+      </visual>
+      <collision>
+        <origin xyz="0.35 0 0.7375" rpy="0 0 0" />
+        <geometry><box size="1.0 1.0 0.025" /></geometry>
+      </collision>
+      <!--
+        Computed by the macro, NOT written by hand.
+
+        Hand-rounded values here were a real bug: ixx = iyy = 3.3 with
+        izz = 6.7 gives ixx + iyy < izz, which violates the triangle
+        inequality that every physically realisable rigid body obeys. The
+        exact figures are 3.3354 / 3.3354 / 6.6667, and rounding the first
+        two DOWN and the last one UP broke the inequality by 0.03.
+
+        libsdformat rejects that outright with "Error Code 19: A link named
+        table has invalid inertia" and ABORTS the URDF-to-SDF conversion.
+        The symptom is not a complaint about the table: it is that the whole
+        model fails to convert, so the gz_ros2_control plugin never loads,
+        so no controller_manager ever appears, so every controller spawner
+        sits waiting for a service that will never exist. Hours can go into
+        debugging that from the spawner end.
+
+        Let the macro do the arithmetic. It cannot produce an invalid tensor.
+      -->
+      <xacro:box_inertial mass="40.0" x="1.0" y="1.0" z="0.025">
+        <origin xyz="0.35 0 0.7375" rpy="0 0 0" />
+      </xacro:box_inertial>
+    </link>
+    <joint name="table_joint" type="fixed">
+      <parent link="world" />
+      <child link="table" />
+      <origin xyz="0 0 0" rpy="0 0 0" />
+    </joint>
+    <gazebo reference="table">
+      <static>true</static>
+      <mu1>0.6</mu1><mu2>0.6</mu2>
+      <kp>1e7</kp><kd>1000</kd>
+    </gazebo>
+    <xacro:property name="arm_parent" value="table" />
+    <xacro:property name="arm_z"      value="0.75" />
+  </xacro:if>
+  <xacro:unless value="$(arg with_table)">
+    <xacro:property name="arm_parent" value="world" />
+    <xacro:property name="arm_z"      value="0.0" />
+  </xacro:unless>
+
+  <!-- ===================== the robot =============================== -->
+  <xacro:panda_arm prefix="${prefix}" parent="${arm_parent}"
+                   xyz="-0.05 0 ${arm_z}" rpy="0 0 0" />
+
+  <xacro:panda_hand prefix="${prefix}" connected_to="${prefix}link8"
+                    sensor_link="${prefix}link7" />
+
+  <xacro:panda_ros2_control prefix="${prefix}"
+                            use_sim="$(arg use_sim)"
+                            controllers_config="$(arg controllers_config)"
+                            initial_q="${q_home}" />
+
+  <!-- ===================== the camera ============================== -->
+  <!-- Fixed RGB-D above and in front of the workspace, per the scope
+       statement: one camera, no fusion. It exists in the URDF so the TF
+       tree is complete and the perception stub can publish poses in a
+       frame that really relates to the arm. -->
+  <xacro:if value="$(arg with_camera)">
+    <link name="camera_link">
+      <visual>
+        <geometry><box size="0.03 0.09 0.025" /></geometry>
+        <material name="camera_black"><color rgba="0.1 0.1 0.1 1.0" /></material>
+      </visual>
+      <inertial>
+        <mass value="0.1" />
+        <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4" />
+      </inertial>
+    </link>
+    <joint name="camera_joint" type="fixed">
+      <parent link="world" />
+      <child link="camera_link" />
+      <!-- 1.35 m up, 0.75 m forward, pitched 40 degrees down toward the table -->
+      <origin xyz="0.75 0.0 1.35" rpy="0 0.698 3.14159" />
+    </joint>
+    <link name="camera_optical_frame" />
+    <joint name="camera_optical_joint" type="fixed">
+      <parent link="camera_link" />
+      <child link="camera_optical_frame" />
+      <!-- REP-103 body frame to the optical convention (z forward, x right) -->
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}" />
+    </joint>
+
+    <gazebo reference="camera_link">
+      <sensor name="rgbd_camera" type="rgbd_camera">
+        <always_on>true</always_on>
+        <update_rate>30</update_rate>
+        <topic>rgbd_camera</topic>
+        <gz_frame_id>camera_optical_frame</gz_frame_id>
+        <camera>
+          <horizontal_fov>1.047</horizontal_fov>
+          <image><width>640</width><height>480</height><format>R8G8B8</format></image>
+          <clip><near>0.1</near><far>4.0</far></clip>
+          <!-- Sensor noise is deliberate. The whole research claim is about
+               tolerating perception error; a noiseless camera would make
+               the compliant controller look pointless. -->
+          <noise><type>gaussian</type><mean>0.0</mean><stddev>0.005</stddev></noise>
+        </camera>
+      </sensor>
+    </gazebo>
+  </xacro:if>
+
+</robot>

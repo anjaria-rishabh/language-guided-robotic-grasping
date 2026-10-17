@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>tops_description</name>
+  <version>1.0.0</version>
+  <description>
+    The TOPS robot model: the real Franka Emika Panda with the Franka Hand.
+    Kinematics, joint limits, inertials and joint dynamics are Franka's
+    official data (config/franka/, copied verbatim from franka_description);
+    the meshes are the real Panda geometry with PBR textures (meshes/). Adds
+    a wrist force/torque measurement, a fixed RGB-D camera, and the
+    ros2_control contract that exposes effort command interfaces on all
+    seven joints.
+  </description>
+  <maintainer email="kartikeyharshkabir@gmail.com">Kabir</maintainer>
+  <license>MIT</license>
+  <!-- Third-party assets in meshes/ keep their own licences: see
+       meshes/README.md (Franka collision meshes and config/franka data:
+       Apache-2.0; textured visual meshes: CC-BY-4.0). -->
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher_gui</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_cmake_xmllint</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

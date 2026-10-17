@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>tops_experiments</name>
+  <version>1.0.0</version>
+  <description>
+    The experimental apparatus: a per-trial logger, an unattended batch
+    runner for the 120-trial factorial, and the statistics pipeline
+    (success-rate proportion tests, Welch and Mann-Whitney on the
+    continuous metrics, effect sizes, and paired tests on matched seeds).
+    Runs with scipy where available and falls back to documented normal
+    approximations otherwise.
+  </description>
+  <maintainer email="kartikeyharshkabir@gmail.com">Kabir</maintainer>
+  <license>MIT</license>
+
+  <depend>rclpy</depend>
+  <depend>std_srvs</depend>
+  <depend>tops_msgs</depend>
+
+  <exec_depend>tops_gazebo</exec_depend>
+  <exec_depend>tops_supervisor</exec_depend>
+  <exec_depend>tops_perception_stub</exec_depend>
+  <exec_depend>tops_controllers</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <!-- plot_trials: the figures (apt packages, never pip) -->
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-matplotlib</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

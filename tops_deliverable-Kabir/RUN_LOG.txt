@@ -1,0 +1,270 @@
+kabir_09@Kabir-Yoga:~/Desktop/Kabir/Jai_Shri_Maha_Mangal/GitHub/Resources/Projects/TOPS/tops_deliverable$ make help
+
+  TOPS 2026 -- language-guided grasping with compliant control
+  =========================================================
+
+  FIRST TIME, in this order:
+    make doctor        check what system packages are missing
+    make deps          install the missing ones (asks for sudo)
+    make build         compile the workspace            (~1-2 min)
+    make test          run every unit test              (~1 min)
+    make verify        prove the statistics pipeline works, no robot
+
+  SEE IT WORK:
+    make view          the arm in RViz, sliders, no physics
+    make watch         ONE full grasp in Gazebo, start to finish
+    make run           bring the system up and leave it up
+
+  PRODUCE THE RESULTS:
+    make trials        the full 120-trial battery         (~1-2 h)
+    make trials-quick  a 24-trial smoke test              (~15 min)
+    make analyse       turn the trial CSV into the report tables
+    make plots         graphs from the full AND the quick CSV -> results/figures/
+                       (trials / trials-quick also plot automatically)
+
+  HOUSEKEEPING:
+    make urdf          print the expanded robot model
+    make topics        list what is running (system must be up)
+    make clean         delete build output
+    make clean-results delete recorded trial data, reports and figures
+
+  Options (append to any run/trial target):
+    CONTROLLER=impedance|admittance|baseline   (now: impedance)
+    REGIME=clean|sensor_noise|calibration|displacement  (now: clean)
+    SEED=<int>  PER_CELL=<int>  CSV=<path>
+    Trial CSVs are APPENDED to, never overwritten: clear stale rows yourself.
+
+  Example:  make watch CONTROLLER=baseline REGIME=calibration
+            (the rigid controller against a miscalibrated camera --
+             this is the failure the project exists to fix)
+
+kabir_09@Kabir-Yoga:~/Desktop/Kabir/Jai_Shri_Maha_Mangal/GitHub/Resources/Projects/TOPS/tops_deliverable$ make trials-quick
+[runner] 24 trials: 3 modes x 4 regimes x 2 repeats
+[runner] rough estimate: 19 minutes
+
+[runner] 1/24  id=0 impedance/clean seed=0 obj="red block"
+[runner] 2/24  id=1 admittance/clean seed=0 obj="red block"  eta 35 min
+[runner] 3/24  id=2 baseline/clean seed=0 obj="red block"  eta 33 min
+[runner] 4/24  id=3 impedance/sensor_noise seed=1000 obj="red block"  eta 32 min
+[runner] 5/24  id=4 admittance/sensor_noise seed=1000 obj="red block"  eta 30 min
+[runner] 6/24  id=5 baseline/sensor_noise seed=1000 obj="red block"  eta 29 min
+[runner] 7/24  id=6 impedance/calibration seed=2000 obj="red block"  eta 27 min
+[runner] 8/24  id=7 admittance/calibration seed=2000 obj="red block"  eta 26 min
+[runner] 9/24  id=8 baseline/calibration seed=2000 obj="red block"  eta 24 min
+[runner] 10/24  id=9 impedance/displacement seed=3000 obj="red block"  eta 23 min
+[runner] 11/24  id=10 admittance/displacement seed=3000 obj="red block"  eta 21 min
+[runner] 12/24  id=11 baseline/displacement seed=3000 obj="red block"  eta 20 min
+[runner] 13/24  id=12 impedance/clean seed=1 obj="green block"  eta 18 min
+[runner] 14/24  id=13 admittance/clean seed=1 obj="green block"  eta 17 min
+[runner] 15/24  id=14 baseline/clean seed=1 obj="green block"  eta 15 min
+[runner] 16/24  id=15 impedance/sensor_noise seed=1001 obj="green block"  eta 14 min
+[runner] 17/24  id=16 admittance/sensor_noise seed=1001 obj="green block"  eta 12 min
+[runner] 18/24  id=17 baseline/sensor_noise seed=1001 obj="green block"  eta 11 min
+[runner] 19/24  id=18 impedance/calibration seed=2001 obj="green block"  eta 9 min
+[runner] 20/24  id=19 admittance/calibration seed=2001 obj="green block"  eta 8 min
+[runner] 21/24  id=20 baseline/calibration seed=2001 obj="green block"  eta 6 min
+[runner] 22/24  id=21 impedance/displacement seed=3001 obj="green block"  eta 5 min
+[runner] 23/24  id=22 admittance/displacement seed=3001 obj="green block"  eta 3 min
+[runner] 24/24  id=23 baseline/displacement seed=3001 obj="green block"  eta 2 min
+
+[runner] 24 trials recorded, 0 failed to run, 2186 s total
+[runner] results: /home/kabir_09/Desktop/Kabir/Jai_Shri_Maha_Mangal/GitHub/Resources/Projects/TOPS/tops_deliverable/results/quick.csv
+[runner] analyse with: ros2 run tops_experiments analyze_trials --csv /home/kabir_09/Desktop/Kabir/Jai_Shri_Maha_Mangal/GitHub/Resources/Projects/TOPS/tops_deliverable/results/quick.csv
+TOPS 2026 -- trial analysis of /home/kabir_09/Desktop/Kabir/Jai_Shri_Maha_Mangal/GitHub/Resources/Projects/TOPS/tops_deliverable/results/quick.csv
+
+==============================================================================
+  1.  OVERVIEW
+==============================================================================
+24 trials, 3 modes, 4 regimes
+statistics backend: pure-Python fallback (approximate)
+  NOTE: p-values below come from normal approximations. They are
+  accurate to a few thousandths at n >= 30 per group and less so
+  below n = 10. Install scipy before quoting them in the report.
+
+mode             n   success           95% CI   peak F (N)   error (mm)   time (s)
+------------------------------------------------------------------------------
+admittance       8     0.0%     [0.00, 0.32]   14.60+-3.01     nan+-nan      10.99
+baseline         8     0.0%     [0.00, 0.32]    0.00+-0.00     nan+-nan      12.84
+impedance        8   100.0%     [0.68, 1.00]    2.77+-0.35   13.98+-1.36     12.67
+
+Targets: success >= 85 % overall and >= 95 % clean; peak force
+<= 10.0 N; terminal error <= 3.0 mm; execution time <= 15.0 s.
+
+==============================================================================
+  2.  AGAINST THE PLAN'S TARGETS
+==============================================================================
+mode          metric                         measured     target  verdict
+------------------------------------------------------------------------------
+admittance    grasp success rate                 0.0%      85.0%  MISS
+              grasp success (clean only)         0.0%      95.0%  MISS
+              peak contact force (worst)      19.24 N    10.00 N  MISS
+              trial execution time (worst)      14.70 s    15.00 s  PASS
+------------------------------------------------------------------------------
+baseline      grasp success rate                 0.0%      85.0%  MISS
+              grasp success (clean only)         0.0%      95.0%  MISS
+              peak contact force (worst)       0.00 N    10.00 N  PASS
+              trial execution time (worst)      14.56 s    15.00 s  PASS
+------------------------------------------------------------------------------
+impedance     grasp success rate               100.0%      85.0%  PASS
+              grasp success (clean only)       100.0%      95.0%  PASS
+              peak contact force (worst)       3.24 N    10.00 N  PASS
+              terminal targeting error (worst)     15.26 mm    3.00 mm  MISS
+              trial execution time (worst)      13.30 s    15.00 s  PASS
+------------------------------------------------------------------------------
+
+==============================================================================
+  3.  ADMITTANCE  vs  BASELINE
+==============================================================================
+Grasp success:  admittance 0/8 (0.0%)   baseline 0/8 (0.0%)
+  degenerate (no variation in outcome): p = 1.0000   (not significant at 0.05)
+  (success is a proportion, so this is deliberately NOT a t-test)
+
+8 matched (regime, seed) pairs found -- paired tests are used where possible.
+Pairing cancels trial-to-trial variation and is substantially
+more powerful than the unpaired equivalent for the same n.
+
+--- Peak contact force (N) ---
+  admittance   mean  14.595  sd  3.014  median  14.547  max  19.244  n=8
+  baseline     mean   0.000  sd  0.000  median   0.000  max   0.000  n=8
+  difference   +14.595 N  (+nan %)
+  Welch's t (fallback)                   t =  13.698  p = <0.0001  ***
+  Mann-Whitney U (normal approximation)  U =     0.0  p = 0.0004  ***
+  the two tests AGREE, so the result is robust to the distributional assumption
+  Cohen's d = +6.849 (large), rank-biserial r = +1.000
+  (a p-value says the difference is real; the effect size says whether it matters)
+  paired t (fallback)                    t =  13.698  p = <0.0001  ***   (n=8 pairs)
+  Wilcoxon signed-rank (normal approximation) W =     0.0  p = 0.0143  *
+
+--- Trial execution time (s) ---
+  admittance   mean  10.993  sd  5.477  median  13.713  max  14.696  n=8
+  baseline     mean  12.843  sd  3.497  median  13.836  max  14.562  n=8
+  difference    -1.850 s  (-14.4 %)
+  Welch's t (fallback)                   t =  -0.805  p = 0.4364  (not significant at 0.05)
+  Mann-Whitney U (normal approximation)  U =    27.0  p = 0.6365  (not significant at 0.05)
+  the two tests AGREE, so the result is robust to the distributional assumption
+  Cohen's d = -0.403 (small), rank-biserial r = -0.156
+  (a p-value says the difference is real; the effect size says whether it matters)
+  paired t (fallback)                    t =  -1.261  p = 0.2479  (not significant at 0.05)   (n=8 pairs)
+  Wilcoxon signed-rank (normal approximation) W =     7.0  p = 0.1415  (not significant at 0.05)
+
+--- Mean force while in contact (N) ---
+  admittance   mean   6.433  sd  1.395  median   6.001  max   8.170  n=8
+  baseline     mean   0.000  sd  0.000  median   0.000  max   0.000  n=8
+  difference    +6.433 N  (+nan %)
+  Welch's t (fallback)                   t =  13.048  p = <0.0001  ***
+  Mann-Whitney U (normal approximation)  U =     0.0  p = 0.0004  ***
+  the two tests AGREE, so the result is robust to the distributional assumption
+  Cohen's d = +6.524 (large), rank-biserial r = +1.000
+  (a p-value says the difference is real; the effect size says whether it matters)
+  paired t (fallback)                    t =  13.048  p = <0.0001  ***   (n=8 pairs)
+  Wilcoxon signed-rank (normal approximation) W =     0.0  p = 0.0143  *
+
+==============================================================================
+  3.  IMPEDANCE  vs  BASELINE
+==============================================================================
+Grasp success:  impedance 8/8 (100.0%)   baseline 0/8 (0.0%)
+  chi-squared with Yates' correction: p = 0.0005   ***
+  (success is a proportion, so this is deliberately NOT a t-test)
+
+8 matched (regime, seed) pairs found -- paired tests are used where possible.
+Pairing cancels trial-to-trial variation and is substantially
+more powerful than the unpaired equivalent for the same n.
+
+--- Peak contact force (N) ---
+  impedance    mean   2.773  sd  0.353  median   2.677  max   3.243  n=8
+  baseline     mean   0.000  sd  0.000  median   0.000  max   0.000  n=8
+  difference    +2.773 N  (+nan %)
+  Welch's t (fallback)                   t =  22.205  p = <0.0001  ***
+  Mann-Whitney U (normal approximation)  U =     0.0  p = 0.0004  ***
+  the two tests AGREE, so the result is robust to the distributional assumption
+  Cohen's d = +11.103 (large), rank-biserial r = +1.000
+  (a p-value says the difference is real; the effect size says whether it matters)
+  paired t (fallback)                    t =  22.205  p = <0.0001  ***   (n=8 pairs)
+  Wilcoxon signed-rank (normal approximation) W =     0.0  p = 0.0143  *
+
+--- Trial execution time (s) ---
+  impedance    mean  12.675  sd  0.364  median  12.685  max  13.295  n=8
+  baseline     mean  12.843  sd  3.497  median  13.836  max  14.562  n=8
+  difference    -0.168 s  (-1.3 %)
+  Welch's t (fallback)                   t =  -0.135  p = 0.8961  (not significant at 0.05)
+  Mann-Whitney U (normal approximation)  U =     8.0  p = 0.0136  *
+  the two tests DISAGREE -- outliers or skew are driving the t-test. Look at the data rather than picking the answer you prefer.
+  Cohen's d = -0.068 (negligible), rank-biserial r = -0.750
+  (a p-value says the difference is real; the effect size says whether it matters)
+  paired t (fallback)                    t =  -0.140  p = 0.8929  (not significant at 0.05)   (n=8 pairs)
+  Wilcoxon signed-rank (normal approximation) W =     8.0  p = 0.1834  (not significant at 0.05)
+
+--- Mean force while in contact (N) ---
+  impedance    mean   1.489  sd  0.009  median   1.487  max   1.503  n=8
+  baseline     mean   0.000  sd  0.000  median   0.000  max   0.000  n=8
+  difference    +1.489 N  (+nan %)
+  Welch's t (fallback)                   t = 445.110  p = <0.0001  ***
+  Mann-Whitney U (normal approximation)  U =     0.0  p = 0.0004  ***
+  the two tests AGREE, so the result is robust to the distributional assumption
+  Cohen's d = +222.555 (large), rank-biserial r = +1.000
+  (a p-value says the difference is real; the effect size says whether it matters)
+  paired t (fallback)                    t = 445.110  p = <0.0001  ***   (n=8 pairs)
+  Wilcoxon signed-rank (normal approximation) W =     0.0  p = 0.0143  *
+
+==============================================================================
+  4.  BY DISTURBANCE REGIME
+==============================================================================
+The headline numbers average over four very different situations.
+The result worth reporting is how the gap CHANGES across them: the
+clean baseline should show little difference, and the calibration
+regime -- a fixed offset that does not average out -- is where the
+compliance is supposed to earn its place.
+
+success rate
+regime             admittance      baseline     impedance
+---------------------------------------------------------
+clean                   0.0%          0.0%        100.0% 
+sensor_noise            0.0%          0.0%        100.0% 
+calibration             0.0%          0.0%        100.0% 
+displacement            0.0%          0.0%        100.0% 
+
+mean peak force (N)
+regime             admittance      baseline     impedance
+---------------------------------------------------------
+clean                   15.26          0.00          2.40
+sensor_noise            11.60          0.00          2.89
+calibration             16.18          0.00          2.61
+displacement            15.34          0.00          3.20
+
+mean terminal error (mm)
+regime             admittance      baseline     impedance
+---------------------------------------------------------
+clean                      --            --         14.53
+sensor_noise               --            --         12.07
+calibration                --            --         14.68
+displacement               --            --         14.65
+
+==============================================================================
+  5.  CONTROLLER HEALTH AND FAULTS
+==============================================================================
+Not results -- evidence that the results are trustworthy. A run
+with hundreds of missed deadlines is not a 1 kHz experiment, and
+saying so is better than having a reviewer notice.
+
+mode           force trips   watchdog   throttled  max dt (ms)    missed
+------------------------------------------------------------------------------
+admittance               2          0           0        69.00      2963
+baseline                 0          1           0         0.00         0
+impedance                0          0           0        61.00      2691
+
+fault counts across all trials:
+  servo_timeout                  13
+  wrench_cutoff                   2
+  watchdog                        1
+
+energy tank, impedance mode: lowest observed 1.021 J across 8 trials
+(the floor is 0.05 J; reaching it means the passivity monitor
+ actively throttled the controller, which is the mechanism
+ working, not a fault)
+
+==============================================================================
+
+written: /home/kabir_09/Desktop/Kabir/Jai_Shri_Maha_Mangal/GitHub/Resources/Projects/TOPS/tops_deliverable/results/quick_report.md
+--- /home/kabir_09/Desktop/Kabir/Jai_Shri_Maha_Mangal/GitHub/Resources/Projects/TOPS/tops_deliverable/results/quick.csv
+24 trials, controllers: impedance, admittance, baseline; regimes: clean, sensor_noise, calibration, displacement
+  wrote 12 files into /home/kabir_09/Desktop/Kabir/Jai_Shri_Maha_Mangal/GitHub/Resources/Projects/TOPS/tops_deliverable/results/figures/quick

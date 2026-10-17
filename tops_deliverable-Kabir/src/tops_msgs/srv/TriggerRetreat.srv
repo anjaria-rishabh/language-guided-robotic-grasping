@@ -1,0 +1,9 @@
+# Ask the controller to back the TCP off along -approach_axis by
+# retreat_distance, at low stiffness. Used by the safety interlock and by
+# the trial runner between trials.
+
+float64 distance        # metres; <= 0 means use the configured default
+bool    then_hold       # stay at the retreated pose instead of returning
+---
+bool   accepted
+string message

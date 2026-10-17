@@ -1,0 +1,44 @@
+# fer_inertials_corrections.yaml
+#
+# The ONLY place this project departs from Franka's published Panda data,
+# and why.
+#
+# Franka's link4 inertia tensor (fer_inertials.yaml, commit 7aeeddc) is not
+# physically realisable. Its principal moments are
+#
+#     0.0036799   0.0079555   0.0127366   kg m^2
+#
+# and every rigid body must satisfy the triangle inequality
+# I1 + I2 >= I3 (mass cannot be distributed so that one moment exceeds the
+# sum of the other two). Here 0.0036799 + 0.0079555 = 0.0116354 < 0.0127366,
+# short by 1.10e-3 kg m^2. libsdformat checks this and rejects the link with
+# "Error Code 19: A link named panda_link4 has invalid inertia", which stops
+# Gazebo loading the robot at all.
+#
+# The correction is the smallest change that makes the tensor valid: keep
+# the mass, the centre of mass and the principal AXES exactly; move the
+# three principal moments by the minimum-norm projection onto
+# I1 + I2 - I3 >= 1e-6, i.e. +d/3, +d/3, -d/3 with d = 1.10e-3 + 1e-6:
+#
+#     0.0040473   0.0083229   0.0123692   kg m^2
+#
+# The resulting tensor differs from Franka's by 4.1 % (Frobenius norm).
+# The numbers below are that tensor written back in link4's frame. Every
+# other link's data is used exactly as Franka published it. To reproduce:
+# eigen-decompose Franka's tensor, apply the shift, recompose (numpy.linalg.eigh).
+#
+# panda_arm.xacro uses an entry here in place of the same entry in
+# fer_inertials.yaml; delete the entry and Franka's original is used again.
+
+link4:
+  origin:
+    xyz: -0.05113 0.05825 0.01698     # unchanged
+    rpy: 0 0 0
+  mass: 2.2037                        # unchanged
+  inertia:
+    xx: 0.00798256086                 # Franka: 0.00784585566
+    xy: -0.00319112589                # Franka: -0.00339591957
+    xz: 0.00131438893                 # Franka: 0.00158704074
+    yy: 0.00668099429                 # Franka: 0.00649543136
+    yz: -0.00157271745                # Franka: -0.00181477884
+    zz: 0.01007591063                 # Franka: 0.01003079917

@@ -1,0 +1,28 @@
+<library path="tops_controllers">
+
+  <class name="tops_controllers/CartesianImpedanceController"
+         type="tops_controllers::CartesianImpedanceController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>
+      Cartesian impedance control for a 7-DOF Panda: a programmable
+      spring-damper in task space, with dynamically consistent null-space
+      posture control, wrench filtering and force regulation, slew-limited
+      gain scheduling, and an energy-tank passivity monitor. Commands joint
+      torque; runs in the controller_manager update loop at 1 kHz.
+    </description>
+  </class>
+
+  <class name="tops_controllers/CartesianAdmittanceController"
+         type="tops_controllers::CartesianAdmittanceController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>
+      Cartesian admittance control: the opposite causality to the impedance
+      controller. Measures the wrist wrench, integrates a virtual
+      mass-spring-damper to produce a reference pose, and tracks it with a
+      stiff inner loop on the same effort interfaces. Exists so the
+      impedance-versus-admittance comparison can be measured rather than
+      asserted.
+    </description>
+  </class>
+
+</library>

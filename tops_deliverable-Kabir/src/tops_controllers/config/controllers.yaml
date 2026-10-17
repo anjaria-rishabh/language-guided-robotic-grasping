@@ -1,0 +1,351 @@
+# ===========================================================================
+#  controller_manager configuration for the TOPS deliverable
+# ===========================================================================
+#
+# Loaded by the gz_ros2_control plugin from inside the Gazebo process (the
+# <parameters> tag in panda_ros2_control.xacro points here), so the
+# controller manager already exists by the time anything spawns a
+# controller. tops_bringup only activates them.
+#
+# Every gain below has a reason. Where a number was chosen rather than
+# derived, the comment says so.
+
+controller_manager:
+  ros__parameters:
+    update_rate: 1000   # Hz -- the read/update/write cycle
+
+    # --- broadcasters ----------------------------------------------------
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    force_torque_sensor_broadcaster:
+      type: force_torque_sensor_broadcaster/ForceTorqueSensorBroadcaster
+
+    # --- the deliverable -------------------------------------------------
+    cartesian_impedance_controller:
+      type: tops_controllers/CartesianImpedanceController
+
+    # --- the comparison arm of the study ---------------------------------
+    cartesian_admittance_controller:
+      type: tops_controllers/CartesianAdmittanceController
+
+    # --- the rigid baseline ----------------------------------------------
+    # Stock joint trajectory control. This is what "no compliance" means in
+    # the experiment: the condition the whole project claims to beat.
+    joint_trajectory_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    # --- the gripper ------------------------------------------------------
+    gripper_controller:
+      type: forward_command_controller/ForwardCommandController
+
+
+force_torque_sensor_broadcaster:
+  ros__parameters:
+    sensor_name: panda_ft_sensor
+    frame_id: panda_ft_sensor_link
+    # Publishes the RAW wrench. The controller does its own gravity
+    # compensation, biasing and filtering in-process; this topic exists so
+    # you can see what the sensor actually reports, which is the only way to
+    # tell a conditioning bug from a sensor bug.
+
+
+# ===========================================================================
+#  Cartesian impedance controller
+# ===========================================================================
+cartesian_impedance_controller:
+  ros__parameters:
+    joints:
+      - panda_joint1
+      - panda_joint2
+      - panda_joint3
+      - panda_joint4
+      - panda_joint5
+      - panda_joint6
+      - panda_joint7
+
+    base_frame: panda_link0
+    tip_frame: panda_hand_tcp
+    ft_sensor_name: panda_ft_sensor
+    gravity: [0.0, 0.0, -9.80665]
+
+    # --- stiffness -------------------------------------------------------
+    # Translational in N/m, rotational in N.m/rad.
+    #
+    # STIFF (free-space servoing): 800 N/m. Chosen so a 10 mm tracking error
+    # produces 8 N of restoring force -- firm enough to follow a visual
+    # servo command promptly, well below the 15 N interlock so an unexpected
+    # collision during transit still trips the cutoff rather than being
+    # pushed through.
+    #
+    # COMPLIANT (contact phase): 150 N/m. This is the number the whole
+    # research claim rests on. It is set from the error budget: the camera
+    # is good to roughly 3-5 mm, so at 150 N/m a 5 mm misalignment generates
+    # 0.75 N -- easily absorbed, nowhere near the 8 N target or the 15 N
+    # limit. Going much softer costs approach accuracy; much stiffer and the
+    # arm starts shoving instead of yielding.
+    stiffness:
+      stiff:     [800.0, 800.0, 800.0, 60.0, 60.0, 60.0]
+      # 220 N/m, not 150. The impedance law has no integral term, so any
+      # residual the gravity model does not cancel shows up as a standing
+      # position offset of (residual / stiffness). At 150 N/m that left the
+      # TCP sitting 13 mm high, which is most of a 15 mm terminal error.
+      # 220 N/m roughly halves it and is still soft enough that a 5 mm
+      # misalignment generates only ~1 N.
+      compliant: [220.0, 220.0, 220.0, 16.0, 16.0, 16.0]
+
+    # --- damping ----------------------------------------------------------
+    # A RATIO, not an absolute gain. The controller computes
+    # d = 2*zeta*sqrt(k * m_task) every cycle from the task-space inertia,
+    # so the damping ratio holds as the arm's effective inertia changes
+    # across the workspace and cannot be left stale when stiffness changes.
+    #
+    # 0.9 is slightly under critical: essentially no overshoot, and a little
+    # quicker than zeta = 1.0. Raise toward 1.2 if contact transients ring.
+    damping_ratio: [0.9, 0.9, 0.9, 0.9, 0.9, 0.9]
+
+    # 800 -> 150 N/m at 1500 N/m/s takes 0.43 s. Slow enough that the
+    # stored spring energy changes gradually and the tank can account for
+    # it; fast enough not to dominate the 15 s trial budget.
+    stiffness_ramp_rate: 1500.0
+
+    # --- null space -------------------------------------------------------
+    # Seven joints, six task DOF, one degree of internal freedom. Left
+    # alone the elbow drifts into a limit partway through an approach.
+    # 20 N.m/rad is soft on purpose: this term must never fight the task,
+    # and the projector already guarantees it cannot, so the only reason to
+    # keep it gentle is to avoid amplifying joint-velocity noise.
+    nullspace:
+      stiffness: 20.0
+      damping_ratio: 1.0
+      q_desired: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
+
+    # --- torque limits ----------------------------------------------------
+    # The manufacturer's continuous limits. Joints 5-7 are 12 N.m, not 87 --
+    # a single global clamp would be either useless on the big joints or
+    # unsafe on the small ones.
+    torque:
+      limits: [87.0, 87.0, 87.0, 87.0, 12.0, 12.0, 12.0]
+      # 1000 N.m/s means a full-scale 87 N.m swing takes 87 ms. This bounds
+      # the jerk a mode switch or a sensor glitch can produce.
+      rate_limit: 1000.0
+
+    # Damped-least-squares factor for the task-space inertia. 0.05 keeps the
+    # inverse bounded through a singularity at the cost of a small error in
+    # the null-space projection nearby. Raise it if the arm twitches when
+    # nearly straight.
+    singularity_damping: 0.05
+
+    compensate_coriolis: true
+
+    joint_limits:
+      lower: [-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973]
+      upper: [2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973]
+      # A one-sided spring inside the last 0.15 rad. Exactly zero elsewhere,
+      # so it costs nothing anywhere else in the workspace.
+      margin: 0.15
+      stiffness: 40.0
+
+    # --- wrench conditioning ---------------------------------------------
+    wrench:
+      # Two cutoffs off one sensor. The control path can afford smoothing;
+      # the interlock cannot, because filter lag is distance travelled into
+      # whatever is being crushed. At 30 Hz the control path lags ~5 ms; at
+      # 120 Hz the safety path lags ~1.3 ms. At a 50 mm/s approach that is
+      # the difference between 0.25 mm and 0.07 mm of extra penetration.
+      cutoff_hz_control: 30.0
+      cutoff_hz_safety: 120.0
+      # Below this, treat as zero. Stops the force loop chasing a phantom
+      # contact from residual bias for the whole trial.
+      deadband_n: 0.3
+      clamp_n: 50.0
+      # 500 samples at 1 kHz is 0.5 s of averaging on activation. The arm
+      # must be still and out of contact for that half second.
+      bias_samples: 500
+      # The frame the sensor reports in. Gazebo measures the wrench through
+      # panda_joint7 (see panda_ros2_control.xacro), resolved in link7's
+      # axes; panda_ft_sensor_link is that frame. The controller reads the
+      # fixed rotation from here to the TCP out of the URDF -- on the real
+      # Panda the hand is mounted at -45 degrees, so it is NOT identity.
+      sensor_frame: panda_ft_sensor_link
+      # Everything distal to the sensor, using Franka's official inertials
+      # (franka_description, robots/fer + end_effectors/franka_hand):
+      #   link7 0.35973 + hand 0.6544 + 2 x finger 0.0291 = 1.07 kg
+      # Centre of mass from the sensor origin, along the TCP axes:
+      #   z = (0.3597*0.0549 + 0.6544*0.1277 + 0.0582*0.1874) / 1.0723 = 0.1065 m
+      #   y = 0.6544 * 0.0119 / 1.0723 = 0.0073 m   (the hand's own COM offset)
+      # Subtracted analytically rather than as a fixed offset, so it stays
+      # correct as the wrist rotates. A constant offset would read a
+      # 90-degree wrist tilt as a 10 N contact and trip the interlock.
+      tool_mass: 1.07
+      tool_com: [0.0, 0.0073, 0.1065]
+
+    # --- force regulation -------------------------------------------------
+    force_control:
+      enabled: true
+      # +z in the TCP frame, which points out of the gripper along the
+      # approach. Expressed in the TIP frame, not the world, so it stays
+      # correct when the wrist tilts.
+      axis_tip: [0.0, 0.0, 1.0]
+      # Press with 5 N during the contact phase: enough to seat the object
+      # against the fingers, comfortably under the 8 N milestone target and
+      # the 15 N hard limit.
+      desired_n: 5.0
+      # Below this measured force there is nothing to regulate against, so
+      # the loop stays off. Running it in free space commands a push at
+      # nothing and drains the passivity budget for work done on no
+      # environment.
+      contact_threshold_n: 1.0
+      kp: 0.5
+      ki: 2.0
+      # Anti-windup. The integrator cannot exceed 3 N of authority, and it
+      # stops accumulating entirely in a direction that is already
+      # saturated. Without this, pressing against a rigid table winds the
+      # integrator up for as long as contact lasts and the arm leaps on
+      # release.
+      integral_clamp_n: 3.0
+      # Along a force-regulated axis, stiffness drops to 20 %. Position and
+      # force along one direction are the same degree of freedom; asking for
+      # both gives you two loops fighting, not both results.
+      axis_stiffness_scale: 0.2
+
+    # --- passivity --------------------------------------------------------
+    tank:
+      # 0.5 J is enough for a normal approach without throttling. For scale:
+      # 0.5 J into a 5 kg task-space inertia is 0.45 m/s, already faster
+      # than anything this task should produce.
+      initial_energy: 1.0
+      min_energy: 0.05
+      max_energy: 2.0
+      max_damping_boost: 3.0
+
+    # --- safety -----------------------------------------------------------
+    safety:
+      # The hard cutoff from the project plan. Above this the controller
+      # latches to zero stiffness (damping only) and refuses mode requests
+      # until ~/trigger_retreat is called.
+      hard_force_limit_n: 15.0
+      # 100 ms without a fresh target zeroes the feed-forward velocity and
+      # holds the last equilibrium. The spring stays live, so the arm is
+      # still compliant to a person touching it.
+      command_timeout_s: 0.1
+      # A target further than this from the current equilibrium is refused.
+      # A vision pipeline that briefly grounds the wrong object produces
+      # exactly that, and without the guard the arm sets off across the
+      # table at full stiffness.
+      max_command_step_m: 0.25
+
+    publish_rate_hz: 100.0
+
+
+# ===========================================================================
+#  Cartesian admittance controller (the comparison)
+# ===========================================================================
+cartesian_admittance_controller:
+  ros__parameters:
+    joints:
+      - panda_joint1
+      - panda_joint2
+      - panda_joint3
+      - panda_joint4
+      - panda_joint5
+      - panda_joint6
+      - panda_joint7
+    base_frame: panda_link0
+    tip_frame: panda_hand_tcp
+    ft_sensor_name: panda_ft_sensor
+    gravity: [0.0, 0.0, -9.80665]
+
+    # The virtual dynamics the arm pretends to have. Tuned to present
+    # roughly the same apparent stiffness as the impedance controller's
+    # compliant mode, so the comparison is between causalities rather than
+    # between two arbitrarily different sets of numbers.
+    virtual_mass:      [6.0, 6.0, 6.0, 0.25, 0.25, 0.25]
+    virtual_damping:   [60.0, 60.0, 60.0, 4.0, 4.0, 4.0]
+    virtual_stiffness: [150.0, 150.0, 150.0, 12.0, 12.0, 12.0]
+
+    # The inner loop is deliberately much stiffer than anything the
+    # impedance controller uses. That is the point of admittance: the
+    # compliance lives entirely in the virtual model above, and the inner
+    # loop's job is to track it exactly. A soft inner loop would
+    # double-count the compliance.
+    #
+    # It is also the reason this controller is expected to lose on a rigid
+    # table: contact closes a loop through the force sensor with this gain
+    # inside it.
+    inner_stiffness: [2500.0, 2500.0, 2500.0, 150.0, 150.0, 150.0]
+    inner_damping_ratio: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+    torque:
+      limits: [87.0, 87.0, 87.0, 87.0, 12.0, 12.0, 12.0]
+      rate_limit: 1000.0
+    singularity_damping: 0.05
+    nullspace:
+      stiffness: 20.0
+      damping_ratio: 1.0
+      q_desired: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
+
+    wrench:
+      cutoff_hz: 20.0
+      deadband_n: 0.3
+      clamp_n: 50.0
+      bias_samples: 500
+      # See the impedance controller's note above: the sensor is on joint 7.
+      sensor_frame: panda_ft_sensor_link
+      tool_mass: 1.07
+      tool_com: [0.0, 0.0073, 0.1065]
+
+    limits:
+      # The reference offset is bounded. A persistent force -- a jammed
+      # gripper, a stuck sensor reading a constant 4 N -- would otherwise
+      # integrate the reference off into the distance with the stiff inner
+      # loop following it there.
+      max_reference_offset_m: 0.10
+      max_reference_speed: 0.5
+
+    safety:
+      hard_force_limit_n: 15.0
+      command_timeout_s: 0.1
+    publish_rate_hz: 100.0
+
+
+# ===========================================================================
+#  Rigid baseline
+# ===========================================================================
+joint_trajectory_controller:
+  ros__parameters:
+    joints:
+      - panda_joint1
+      - panda_joint2
+      - panda_joint3
+      - panda_joint4
+      - panda_joint5
+      - panda_joint6
+      - panda_joint7
+    command_interfaces: [effort]
+    state_interfaces: [position, velocity]
+
+    # Computed-torque-ish: a stiff joint PD on top of the effort interface.
+    # These gains are high on purpose. This controller is the "no
+    # compliance" condition, and making it artificially soft would be
+    # rigging the comparison in the project's own favour.
+    gains:
+      panda_joint1: {p: 600.0, d: 30.0, i: 0.0, i_clamp: 10.0}
+      panda_joint2: {p: 600.0, d: 30.0, i: 0.0, i_clamp: 10.0}
+      panda_joint3: {p: 600.0, d: 30.0, i: 0.0, i_clamp: 10.0}
+      panda_joint4: {p: 600.0, d: 30.0, i: 0.0, i_clamp: 10.0}
+      panda_joint5: {p: 250.0, d: 10.0, i: 0.0, i_clamp: 5.0}
+      panda_joint6: {p: 150.0, d: 10.0, i: 0.0, i_clamp: 5.0}
+      panda_joint7: {p: 50.0, d: 5.0, i: 0.0, i_clamp: 5.0}
+
+    constraints:
+      stopped_velocity_tolerance: 0.01
+      goal_time: 0.5
+
+
+gripper_controller:
+  ros__parameters:
+    joints:
+      - panda_finger_joint1
+      - panda_finger_joint2
+    interface_name: position

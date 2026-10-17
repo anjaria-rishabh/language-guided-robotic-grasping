@@ -1,0 +1,160 @@
+<?xml version="1.0"?>
+<!--
+  The contract between controllers and hardware, and the Gazebo side of it.
+
+  This file is where sim-to-real happens. Switching the <plugin> line and
+  nothing else is the whole hardware change, which is exactly why the
+  controller never mentions Gazebo anywhere in its source.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="panda_ros2_control"
+               params="prefix:=panda_ use_sim:=true controllers_config:='' initial_q">
+
+    <ros2_control name="PandaSystem" type="system">
+
+      <hardware>
+        <xacro:if value="${use_sim}">
+          <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+        </xacro:if>
+        <xacro:unless value="${use_sim}">
+          <!-- Real hardware. Requires libfranka and a PREEMPT_RT kernel;
+               see docs/06_SIM_TO_REAL.md before touching this branch. -->
+          <plugin>franka_hardware/FrankaHardwareInterface</plugin>
+          <param name="robot_ip">172.16.0.2</param>
+        </xacro:unless>
+      </hardware>
+
+      <!--
+        Effort command interface on all seven joints. This single line is
+        what makes the entire project possible: Cartesian impedance control
+        commands TORQUE. A position-only interface makes the deliverable
+        unimplementable, not merely harder. If you ever swap this URDF and
+        the arm stops yielding, check this first.
+      -->
+      <xacro:macro name="arm_joint_iface" params="n initial">
+        <joint name="${prefix}joint${n}">
+          <command_interface name="effort" />
+          <state_interface name="position">
+            <param name="initial_value">${initial}</param>
+          </state_interface>
+          <state_interface name="velocity" />
+          <state_interface name="effort" />
+        </joint>
+      </xacro:macro>
+
+      <xacro:arm_joint_iface n="1" initial="${initial_q[0]}" />
+      <xacro:arm_joint_iface n="2" initial="${initial_q[1]}" />
+      <xacro:arm_joint_iface n="3" initial="${initial_q[2]}" />
+      <xacro:arm_joint_iface n="4" initial="${initial_q[3]}" />
+      <xacro:arm_joint_iface n="5" initial="${initial_q[4]}" />
+      <xacro:arm_joint_iface n="6" initial="${initial_q[5]}" />
+      <xacro:arm_joint_iface n="7" initial="${initial_q[6]}" />
+
+      <!-- The fingers are position-controlled. Grasping is a clamp, not a
+           compliant task: the compliance that matters happens in the arm,
+           which is the whole argument of the project. -->
+      <joint name="${prefix}finger_joint1">
+        <command_interface name="position" />
+        <state_interface name="position"><param name="initial_value">0.04</param></state_interface>
+        <state_interface name="velocity" />
+      </joint>
+      <joint name="${prefix}finger_joint2">
+        <command_interface name="position" />
+        <state_interface name="position"><param name="initial_value">0.04</param></state_interface>
+        <state_interface name="velocity" />
+      </joint>
+
+      <!-- The wrist F/T sensor, exposed to ros2_control as six state
+           interfaces. Declaring it here is what lets the controller read
+           the wrench in-process at 1 kHz instead of going round a ROS
+           topic, which would add jitter and a copy to the safety path. -->
+      <sensor name="${prefix}ft_sensor">
+        <state_interface name="force.x" />
+        <state_interface name="force.y" />
+        <state_interface name="force.z" />
+        <state_interface name="torque.x" />
+        <state_interface name="torque.y" />
+        <state_interface name="torque.z" />
+        <param name="frame_id">${prefix}link7</param>
+      </sensor>
+
+    </ros2_control>
+
+    <!-- ============== Gazebo: physics-side configuration ============ -->
+    <xacro:if value="${use_sim}">
+
+      <gazebo>
+        <plugin filename="gz_ros2_control-system"
+                name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+          <parameters>${controllers_config}</parameters>
+          <ros>
+            <namespace>/</namespace>
+          </ros>
+        </plugin>
+      </gazebo>
+
+      <!-- The physical sensor Gazebo simulates and gz_ros2_control feeds
+           into the state interfaces above. update_rate matches the control
+           loop: sampling force slower than you act on it means the
+           interlock reacts to stale data, and delay is distance travelled
+           into whatever you hit. -->
+      <!--
+        The sensor is attached to panda_joint7, NOT to the dedicated
+        ft_sensor_joint it is named after, and the reason is worth writing
+        down because it costs a day to rediscover.
+
+        ft_sensor_joint is a FIXED joint. Both URDF-to-SDF converters lump
+        fixed joints into their parent link, so the joint ceases to exist in
+        the SDF Gazebo actually simulates — and a sensor anchored to a
+        joint that no longer exists is silently dropped. `gz sdf -p` on this
+        model shows zero force_torque elements for exactly that reason.
+        Downstream, gz_ros2_control cannot match the <sensor> declared in
+        the ros2_control block above to any real Gazebo sensor, the
+        force_torque_sensor_broadcaster fails to configure, and the
+        impedance controller refuses to activate because its wrench state
+        interfaces were never claimed.
+
+        panda_joint7 is revolute, so it survives both converters. The
+        measured wrench is then everything distal to joint 7: link7, the
+        hand and the fingers, resolved in link7's axes about link7's origin
+        (the frame panda_hand.xacro names panda_ft_sensor_link). That sets
+        the static load the controller must subtract — wrench.tool_mass is
+        1.07 kg from Franka's official inertials, not the hand's 0.65 kg —
+        see tops_controllers/config/controllers.yaml.
+      -->
+      <gazebo reference="${prefix}joint7">
+        <sensor name="${prefix}ft_sensor" type="force_torque">
+          <always_on>true</always_on>
+          <update_rate>1000</update_rate>
+          <visualize>false</visualize>
+          <force_torque>
+            <frame>child</frame>
+            <measure_direction>parent_to_child</measure_direction>
+          </force_torque>
+        </sensor>
+      </gazebo>
+
+      <!-- Contact parameters. These are SET, not discovered: a peak-force
+           number out of this simulator is a comparison between two
+           controllers under identical contact physics, never a prediction
+           of hardware. Say so in the report. -->
+      <xacro:macro name="contact_surface" params="link mu:=1.0 kp:=1e6 kd:=100">
+        <gazebo reference="${link}">
+          <mu1>${mu}</mu1>
+          <mu2>${mu}</mu2>
+          <kp>${kp}</kp>
+          <kd>${kd}</kd>
+          <selfCollide>false</selfCollide>
+        </gazebo>
+      </xacro:macro>
+
+      <xacro:contact_surface link="${prefix}leftfinger"  mu="1.2" kp="1e6" kd="100" />
+      <xacro:contact_surface link="${prefix}rightfinger" mu="1.2" kp="1e6" kd="100" />
+      <xacro:contact_surface link="${prefix}hand"         mu="0.8" kp="1e6" kd="100" />
+      <xacro:contact_surface link="${prefix}link7"        mu="0.8" kp="1e6" kd="100" />
+
+    </xacro:if>
+
+  </xacro:macro>
+</robot>

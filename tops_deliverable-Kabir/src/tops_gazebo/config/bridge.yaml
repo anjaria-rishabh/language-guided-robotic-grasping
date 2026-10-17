@@ -1,0 +1,44 @@
+# Topics bridged between Gazebo Sim and ROS 2.
+#
+# Deliberately short. Every bridged topic is a serialisation, a copy and a
+# thread hop, and the things that matter most in this project -- joint
+# state and the wrist wrench -- do NOT appear here. They reach the
+# controller through ros2_control's in-process state interfaces instead,
+# at 1 kHz with no middleware in the path.
+#
+# What is here is what genuinely has to cross the boundary.
+
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+# Contacts, for the trial log. Used to decide whether an object was
+# actually held rather than merely lifted past.
+- ros_topic_name: "/tops/contacts"
+  gz_topic_name: "/world/tops_tabletop/contacts"
+  ros_type_name: "ros_gz_interfaces/msg/Contacts"
+  gz_type_name: "gz.msgs.Contacts"
+  direction: GZ_TO_ROS
+
+# The RGB-D camera. Rishabh's half consumes these; the perception stub in
+# this workspace does not need them, but they must exist for the real
+# pipeline to drop in unchanged.
+- ros_topic_name: "/camera/image_raw"
+  gz_topic_name: "/rgbd_camera/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/camera/depth"
+  gz_topic_name: "/rgbd_camera/depth_image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/camera/camera_info"
+  gz_topic_name: "/rgbd_camera/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS

@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>tops_supervisor</name>
+  <version>1.0.0</version>
+  <description>
+    The grasp sequencer: an explicit finite state machine over
+    IDLE - HOMING - SERVO - COMPLIANT - GRASP - LIFT - HOLD, with the
+    wrench cutoff, the perception watchdog and per-state timeouts as
+    interlocks that fire from any active state.
+  </description>
+  <maintainer email="kartikeyharshkabir@gmail.com">Kabir</maintainer>
+  <license>MIT</license>
+
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>tops_msgs</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

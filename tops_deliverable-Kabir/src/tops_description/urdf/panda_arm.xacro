@@ -1,0 +1,181 @@
+<?xml version="1.0"?>
+<!--
+  The 7-DOF Franka Emika Panda arm: the real robot, not an approximation.
+
+  Every number that defines the robot comes from Franka Robotics' own
+  description package, copied verbatim into config/franka/ and read here
+  with xacro.load_yaml():
+
+    fer_kinematics.yaml    joint origins (the link-to-link transforms)
+    fer_joint_limits.yaml  position / velocity / torque limits
+    fer_inertials.yaml     mass, centre of mass, inertia tensor per link
+                           (link4's tensor corrected, see
+                           fer_inertials_corrections.yaml)
+    fer_dynamics.yaml      joint damping and friction
+
+  ("FER" = Franka Emika Robot = the Panda, in Franka's current naming.)
+
+  The geometry is the real Panda too:
+
+    meshes/visual/      the Panda's visual meshes, Blender re-exports with UVs
+                        so they can carry the orange PBR paint (textures/).
+                        Same link frames as Franka's meshes to the millimetre.
+    meshes/collision/   Franka's own collision meshes (franka_description).
+
+  See meshes/README.md for where each file came from and its licence.
+
+  The kinematic chain:
+
+    link0 -j1-> link1 -j2-> link2 -j3-> link3 -j4-> link4
+          -j5-> link5 -j6-> link6 -j7-> link7 -(fixed)-> link8 (flange)
+
+  Theory/03_Kinematics.md explains what these transforms mean and
+  Theory/04_Dynamics.md why the inertials matter: the controller computes
+  gravity compensation directly from them.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ===================== the official data ========================= -->
+  <xacro:property name="fer_dir"    value="$(find tops_description)/config/franka" />
+  <xacro:property name="kinematics" value="${xacro.load_yaml(fer_dir + '/fer_kinematics.yaml')}" />
+  <xacro:property name="limits"     value="${xacro.load_yaml(fer_dir + '/fer_joint_limits.yaml')}" />
+  <xacro:property name="inertials"  value="${xacro.load_yaml(fer_dir + '/fer_inertials.yaml')}" />
+  <xacro:property name="dynamics"   value="${xacro.load_yaml(fer_dir + '/fer_dynamics.yaml')}" />
+  <!-- The one documented departure from Franka's data: link4's published
+       inertia tensor is physically impossible, so a minimally corrected
+       one replaces it. The file explains the maths. -->
+  <xacro:property name="inertial_fixes" value="${xacro.load_yaml(fer_dir + '/fer_inertials_corrections.yaml')}" />
+
+  <!-- Where meshes and textures live. package:// is what RViz and
+       robot_state_publisher understand; the URDF-to-SDF converter rewrites
+       it to model:// for Gazebo, which finds the package through the
+       GZ_SIM_RESOURCE_PATH hook installed by tops_gazebo. The PBR texture
+       paths sit inside <gazebo> blocks the converter copies untouched, so
+       those are written as model:// directly. -->
+  <xacro:property name="mesh_pkg" value="package://tops_description/meshes" />
+  <xacro:property name="tex_dir"  value="model://tops_description/meshes/textures" />
+
+  <!-- ===================== reusable pieces =========================== -->
+
+  <!-- <inertial> for one entry of an inertials YAML (arm or hand). -->
+  <xacro:macro name="franka_inertial" params="data">
+    <inertial>
+      <origin xyz="${data['origin']['xyz']}" rpy="${data['origin']['rpy']}" />
+      <mass value="${data['mass']}" />
+      <inertia ixx="${data['inertia']['xx']}" ixy="${data['inertia']['xy']}"
+               ixz="${data['inertia']['xz']}" iyy="${data['inertia']['yy']}"
+               iyz="${data['inertia']['yz']}" izz="${data['inertia']['zz']}" />
+    </inertial>
+  </xacro:macro>
+
+  <!-- Gazebo-only paint: physically based rendering maps for one visual.
+       URDF has no way to say "metalness map", so this rides in a <gazebo>
+       extension that the URDF-to-SDF converter merges into the link's
+       visual. RViz never sees it — RViz uses the BaseColor texture bound
+       inside the .dae instead — so the two viewers agree on colour.
+       Maps per link exactly as the source model assigned them: link0, link7
+       and the fingers carry a metalness map, the rest a flat 0.1. -->
+  <xacro:macro name="pbr_paint" params="link tex metal_map:=false">
+    <gazebo reference="${link}">
+      <visual>
+        <material>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>1 1 1 1</specular>
+          <pbr>
+            <metal>
+              <albedo_map>${tex_dir}/${tex}_${tex}_BaseColor.png</albedo_map>
+              <normal_map>${tex_dir}/${tex}_${tex}_Normal.png</normal_map>
+              <roughness_map>${tex_dir}/${tex}_${tex}_Roughness.png</roughness_map>
+              <xacro:if value="${metal_map}">
+                <metalness_map>${tex_dir}/${tex}_${tex}_Metallic.png</metalness_map>
+              </xacro:if>
+              <xacro:unless value="${metal_map}">
+                <metalness>0.1</metalness>
+              </xacro:unless>
+            </metal>
+          </pbr>
+        </material>
+      </visual>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- One arm link: real visual mesh, Franka's collision mesh, Franka's
+       inertial, Gazebo paint. -->
+  <xacro:macro name="panda_link" params="prefix n metal_map:=false">
+    <link name="${prefix}link${n}">
+      <visual name="${prefix}link${n}_visual">
+        <geometry><mesh filename="${mesh_pkg}/visual/link${n}.dae" /></geometry>
+      </visual>
+      <collision name="${prefix}link${n}_collision">
+        <geometry><mesh filename="${mesh_pkg}/collision/link${n}.stl" /></geometry>
+      </collision>
+      <xacro:property name="key" value="${'link' + str(n)}" />
+      <xacro:franka_inertial data="${inertial_fixes[key] if key in inertial_fixes else inertials[key]}" />
+    </link>
+    <xacro:pbr_paint link="${prefix}link${n}" tex="link${n}" metal_map="${metal_map}" />
+  </xacro:macro>
+
+  <!-- One revolute joint, origin/limits/dynamics all from Franka's YAML.
+       The extra attributes on <dynamics> (D, K, motor inertia, gear ratio)
+       are Franka's own extensions; standard URDF tools read only damping
+       and friction and ignore the rest, so carrying them costs nothing and
+       keeps the full manufacturer data in the model. -->
+  <xacro:macro name="panda_joint" params="prefix n">
+    <xacro:property name="k" value="${kinematics['joint' + str(n)]['kinematic']}" />
+    <xacro:property name="l" value="${limits['joint' + str(n)]['limit']}" />
+    <xacro:property name="d" value="${dynamics['joint' + str(n)]['dynamic']}" />
+    <joint name="${prefix}joint${n}" type="revolute">
+      <parent link="${prefix}link${n - 1}" />
+      <child link="${prefix}link${n}" />
+      <origin xyz="${k['x']} ${k['y']} ${k['z']}" rpy="${k['roll']} ${k['pitch']} ${k['yaw']}" />
+      <axis xyz="0 0 1" />
+      <limit lower="${l['lower']}" upper="${l['upper']}"
+             effort="${l['effort']}" velocity="${l['velocity']}" />
+      <dynamics damping="${d['damping']}" friction="${d['friction']}"
+                D="${d['D']}" K="${d['K']}"
+                mu_coulomb="${d['mu_coulomb']}" mu_viscous="${d['mu_viscous']}"
+                motor_inertia="${d['motor_inertia']}" gear_ratio="${d['gear_ratio']}" />
+    </joint>
+  </xacro:macro>
+
+  <!-- ===================== the arm =================================== -->
+  <xacro:macro name="panda_arm" params="prefix:=panda_ parent:=world xyz:='0 0 0' rpy:='0 0 0'">
+
+    <!-- link0: the base, bolted to whatever `parent` is. -->
+    <xacro:panda_link prefix="${prefix}" n="0" metal_map="true" />
+    <joint name="${prefix}base_joint" type="fixed">
+      <parent link="${parent}" />
+      <child link="${prefix}link0" />
+      <origin xyz="${xyz}" rpy="${rpy}" />
+    </joint>
+
+    <xacro:panda_link  prefix="${prefix}" n="1" />
+    <xacro:panda_joint prefix="${prefix}" n="1" />
+    <xacro:panda_link  prefix="${prefix}" n="2" />
+    <xacro:panda_joint prefix="${prefix}" n="2" />
+    <xacro:panda_link  prefix="${prefix}" n="3" />
+    <xacro:panda_joint prefix="${prefix}" n="3" />
+    <xacro:panda_link  prefix="${prefix}" n="4" />
+    <xacro:panda_joint prefix="${prefix}" n="4" />
+    <xacro:panda_link  prefix="${prefix}" n="5" />
+    <xacro:panda_joint prefix="${prefix}" n="5" />
+    <xacro:panda_link  prefix="${prefix}" n="6" />
+    <xacro:panda_joint prefix="${prefix}" n="6" />
+    <xacro:panda_link  prefix="${prefix}" n="7" metal_map="true" />
+    <xacro:panda_joint prefix="${prefix}" n="7" />
+
+    <!-- link8: the mechanical flange. A massless frame 107 mm along link7's
+         z axis (Franka's "joint8"), so "where the tool bolts on" is a named
+         frame rather than an offset buried in someone's code. Massless
+         frames must carry no <inertial> at all: a tiny fake mass would be
+         simulated, and KDL would warn about it. -->
+    <link name="${prefix}link8" />
+    <joint name="${prefix}joint8" type="fixed">
+      <parent link="${prefix}link7" />
+      <child link="${prefix}link8" />
+      <origin xyz="${kinematics['joint8']['kinematic']['x']} ${kinematics['joint8']['kinematic']['y']} ${kinematics['joint8']['kinematic']['z']}"
+              rpy="0 0 0" />
+    </joint>
+
+  </xacro:macro>
+</robot>

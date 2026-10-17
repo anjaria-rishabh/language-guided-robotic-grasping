@@ -1,0 +1,86 @@
+# fer_dynamics.yaml
+#
+# VERBATIM copy of Franka Robotics' official data for the Franka Emika Panda
+# ("FER" in their naming), from github.com/frankarobotics/franka_description
+# at commit 7aeeddc, file robots/fer/dynamics.yaml. Apache-2.0, (c) Franka Robotics GmbH.
+#
+# Do not edit these numbers. tops_description reads them with
+# xacro.load_yaml() so that the model provably carries the manufacturer's
+# data; anything project-specific belongs in the xacro files instead.
+
+joint1:
+  dynamic:
+    D: 1  
+    K: 7000 
+    damping: 0.003
+    friction: 0.2
+    mu_coulomb: 0
+    mu_viscous: 16
+    motor_inertia: 0.00004206399  # kg·m²
+    gear_ratio: 120.0
+
+joint2:
+  dynamic:
+    D: 1  
+    K: 7000 
+    damping: 0.003
+    friction: 0.2
+    mu_coulomb: 0
+    mu_viscous: 16
+    motor_inertia: 0.00004206399  # kg·m²
+    gear_ratio: 120.0
+
+joint3:
+  dynamic:
+    D: 1  
+    K: 7000 
+    damping: 0.003
+    friction: 0.2
+    mu_coulomb: 0
+    mu_viscous: 16
+    motor_inertia: 0.00003211626  # kg·m²
+    gear_ratio: 120.0
+
+joint4:
+  dynamic:
+    D: 1  
+    K: 7000 
+    damping: 0.003
+    friction: 0.2
+    mu_coulomb: 0
+    mu_viscous: 16
+    motor_inertia: 0.00003211626  # kg·m²
+    gear_ratio: 120.0
+
+joint5:
+  dynamic:
+    D: 1  
+    K: 7000 
+    damping: 0.003
+    friction: 0.2
+    mu_coulomb: 0
+    mu_viscous: 16
+    motor_inertia: 0.00003211626  # kg·m²
+    gear_ratio: 80.0
+
+joint6:
+  dynamic:
+    D: 1  
+    K: 7000 
+    damping: 0.003
+    friction: 0.2
+    mu_coulomb: 0
+    mu_viscous: 16
+    motor_inertia: 0.00003211626  # kg·m²
+    gear_ratio: 80.0
+
+joint7:
+  dynamic:
+    D: 1  
+    K: 7000 
+    damping: 0.003
+    friction: 0.2
+    mu_coulomb: 0
+    mu_viscous: 16
+    motor_inertia: 0.00003211626  # kg·m²
+    gear_ratio: 80.0

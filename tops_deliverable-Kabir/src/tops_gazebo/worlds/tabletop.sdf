@@ -1,0 +1,264 @@
+<?xml version="1.0"?>
+<!--
+  The experimental scene: a 1 m x 1 m tabletop with graspable objects.
+
+  Physics settings are the thing to read carefully here, because every
+  peak-force number this project reports is produced under them. They are
+  SET, not discovered. A force measured in this world is a comparison
+  between two controllers under identical contact physics; it is not a
+  prediction of what a real Panda would do. Say so in the report before a
+  reviewer says it for you.
+-->
+<sdf version="1.9">
+  <world name="tops_tabletop">
+
+    <physics name="1ms" type="dart">
+      <!-- 1 ms physics step to match the 1 kHz control loop. Stepping
+           physics slower than the controller means the controller sees the
+           same state twice and computes a damping term from a velocity
+           that has not been updated, which shows up as a spurious
+           high-frequency component in the commanded torque. -->
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+      <dart>
+        <solver><solver_type>dantzig</solver_type></solver>
+      </dart>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics" />
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands" />
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster" />
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-contact-system"
+            name="gz::sim::systems::Contact" />
+    <plugin filename="gz-sim-forcetorque-system"
+            name="gz::sim::systems::ForceTorque" />
+    <plugin filename="gz-sim-imu-system"
+            name="gz::sim::systems::Imu" />
+
+    <gravity>0 0 -9.80665</gravity>
+
+    <scene>
+      <ambient>0.5 0.5 0.5 1</ambient>
+      <background>0.75 0.80 0.86 1</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.4 0.3 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>20 20</size></plane></geometry>
+          <surface><friction><ode><mu>0.8</mu><mu2>0.8</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>20 20</size></plane></geometry>
+          <material>
+            <ambient>0.35 0.35 0.38 1</ambient>
+            <diffuse>0.45 0.45 0.48 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+
+    <!-- =====================================================================
+         The graspable objects.
+         
+         These live in the WORLD rather than being spawned at runtime, and the
+         reason is a hard limit rather than a preference: `ros_gz_sim create`
+         accepts exactly ONE model per file. Handing it a file with six models
+         produced "Error Code 11: Root object can only contain one model.
+         Using the first one found" -- so five of the six objects silently
+         never appeared, and every trial that targeted one of them failed for
+         reasons that looked like a control problem.
+
+         Named by colour because the language grounding in this project is
+         direct-name only: "the red block", never "the block behind the mug".
+
+         Masses and sizes are chosen so the gripper can actually hold them.
+         The jaw opens to 78 mm, and 200 g at the fingers' friction
+         coefficient needs about 1 N of normal force not to slip. Heavier
+         objects would make the study about grip force rather than about
+         approach compliance, which is not the question being asked.
+         ===================================================================== -->
+    <model name="red_block">
+      <pose>0.45 -0.15 0.7760 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.15</mass>
+          <inertia>
+            <ixx>0.00006250</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>0.00006250</iyy><iyz>0</iyz>
+            <izz>0.00006250</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.05 0.05 0.05</size></box></geometry>
+          <surface>
+            <friction><ode><mu>1.1</mu><mu2>1.1</mu2></ode></friction>
+            <contact><ode><kp>1e6</kp><kd>100</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.05 0.05 0.05</size></box></geometry>
+          <material>
+            <ambient>0.425 0.075 0.075 1</ambient>
+            <diffuse>0.85 0.15 0.15 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="green_block">
+      <pose>0.5 0.1 0.7760 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.15</mass>
+          <inertia>
+            <ixx>0.00006250</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>0.00006250</iyy><iyz>0</iyz>
+            <izz>0.00006250</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.05 0.05 0.05</size></box></geometry>
+          <surface>
+            <friction><ode><mu>1.1</mu><mu2>1.1</mu2></ode></friction>
+            <contact><ode><kp>1e6</kp><kd>100</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.05 0.05 0.05</size></box></geometry>
+          <material>
+            <ambient>0.100 0.350 0.125 1</ambient>
+            <diffuse>0.2 0.7 0.25 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="blue_block">
+      <pose>0.38 0.22 0.7760 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.15</mass>
+          <inertia>
+            <ixx>0.00006250</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>0.00006250</iyy><iyz>0</iyz>
+            <izz>0.00006250</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.05 0.05 0.05</size></box></geometry>
+          <surface>
+            <friction><ode><mu>1.1</mu><mu2>1.1</mu2></ode></friction>
+            <contact><ode><kp>1e6</kp><kd>100</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.05 0.05 0.05</size></box></geometry>
+          <material>
+            <ambient>0.100 0.175 0.425 1</ambient>
+            <diffuse>0.2 0.35 0.85 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="yellow_block">
+      <pose>0.55 -0.05 0.7760 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.15</mass>
+          <inertia>
+            <ixx>0.00006250</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>0.00006250</iyy><iyz>0</iyz>
+            <izz>0.00006250</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.05 0.05 0.05</size></box></geometry>
+          <surface>
+            <friction><ode><mu>1.1</mu><mu2>1.1</mu2></ode></friction>
+            <contact><ode><kp>1e6</kp><kd>100</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.05 0.05 0.05</size></box></geometry>
+          <material>
+            <ambient>0.450 0.400 0.075 1</ambient>
+            <diffuse>0.9 0.8 0.15 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="orange_block">
+      <pose>0.4 -0.28 0.7735 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.12</mass>
+          <inertia>
+            <ixx>0.00004050</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>0.00004050</iyy><iyz>0</iyz>
+            <izz>0.00004050</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.045 0.045 0.045</size></box></geometry>
+          <surface>
+            <friction><ode><mu>1.1</mu><mu2>1.1</mu2></ode></friction>
+            <contact><ode><kp>1e6</kp><kd>100</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.045 0.045 0.045</size></box></geometry>
+          <material>
+            <ambient>0.475 0.275 0.050 1</ambient>
+            <diffuse>0.95 0.55 0.1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="purple_block">
+      <pose>0.6 0.18 0.7785 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.2</mass>
+          <inertia>
+            <ixx>0.00010083</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>0.00010083</iyy><iyz>0</iyz>
+            <izz>0.00010083</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.055 0.055 0.055</size></box></geometry>
+          <surface>
+            <friction><ode><mu>1.1</mu><mu2>1.1</mu2></ode></friction>
+            <contact><ode><kp>1e6</kp><kd>100</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.055 0.055 0.055</size></box></geometry>
+          <material>
+            <ambient>0.275 0.125 0.350 1</ambient>
+            <diffuse>0.55 0.25 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

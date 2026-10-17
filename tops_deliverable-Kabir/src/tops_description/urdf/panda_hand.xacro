@@ -1,0 +1,158 @@
+<?xml version="1.0"?>
+<!--
+  The Franka Hand (parallel-jaw gripper), the TCP, and the frame the wrist
+  force/torque reading is expressed in.
+
+  Like the arm, this is Franka's hand as Franka describes it
+  (franka_description, end_effectors/common/franka_hand.xacro):
+
+    * mounted on the flange (link8) rotated -45 degrees about z, because of
+      the flange's bolt pattern. This is also why the Panda's home pose has
+      q7 = +45 degrees: that is the joint angle at which the fingers line up
+      with the base axes again.
+    * two fingers on prismatic joints, 0 to 40 mm each (80 mm max opening)
+    * the TCP 103.4 mm from the hand origin, between the fingertips
+    * inertials from config/franka/franka_hand_inertials.yaml, verbatim
+    * finger COLLISION geometry as four boxes per finger (screw mount,
+      carriage sledge, diagonal finger, rubber tip). Franka uses boxes
+      rather than the finger mesh deliberately: mesh-on-box contact chatters
+      in a physics engine and makes simulated grasps slip, and the
+      fingertip box is exactly the rubber pad that touches the object.
+
+  The force/torque measurement
+  ============================
+  The project adds a wrist F/T sensor (the stock Panda estimates external
+  force from joint torques instead). Gazebo cannot attach a force/torque
+  sensor to a FIXED joint — fixed joints are merged away when the URDF is
+  converted to SDF — so the sensor is mounted on panda_joint7 (see
+  panda_ros2_control.xacro). It therefore measures the wrench transmitted
+  through joint 7, resolved in link7's axes, about link7's origin. That
+  frame is given a name here, panda_ft_sensor_link, so that topics and
+  parameters can say exactly which frame a wrench is in. There is no
+  physical sensor body: modelling a puck that is not there would put 8 mm
+  of fake geometry between the flange and the hand.
+
+  Because the hand is at -45 degrees, the sensor frame's x/y axes differ
+  from the TCP's by 45 degrees. The controllers read that rotation from
+  this URDF (KinematicsModel::fixedTransform) instead of assuming the frames
+  coincide.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:property name="hand_data"
+                  value="${xacro.load_yaml('$(find tops_description)/config/franka/franka_hand_inertials.yaml')}" />
+
+  <xacro:macro name="panda_hand" params="prefix:=panda_ connected_to:=panda_link8 sensor_link:=panda_link7">
+
+    <!-- ============ the frame the F/T reading is expressed in ========== -->
+    <!-- Coincident with link7: see the header. Massless frames carry no
+         <inertial> at all. -->
+    <link name="${prefix}ft_sensor_link" />
+    <joint name="${prefix}ft_sensor_joint" type="fixed">
+      <parent link="${sensor_link}" />
+      <child link="${prefix}ft_sensor_link" />
+      <origin xyz="0 0 0" rpy="0 0 0" />
+    </joint>
+
+    <!-- ===================== the hand body ========================= -->
+    <joint name="${prefix}hand_joint" type="fixed">
+      <parent link="${connected_to}" />
+      <child link="${prefix}hand" />
+      <origin xyz="0 0 0" rpy="0 0 ${-pi/4}" />
+    </joint>
+    <link name="${prefix}hand">
+      <visual name="${prefix}hand_visual">
+        <geometry><mesh filename="${mesh_pkg}/visual/hand.dae" /></geometry>
+      </visual>
+      <collision name="${prefix}hand_collision">
+        <geometry><mesh filename="${mesh_pkg}/collision/hand.stl" /></geometry>
+      </collision>
+      <xacro:franka_inertial data="${hand_data['hand']}" />
+    </link>
+    <xacro:pbr_paint link="${prefix}hand" tex="hand" />
+
+    <!-- ================== the two fingers ========================== -->
+    <!-- Franka's four collision boxes per finger, in the finger's own
+         frame (the finger slides along its +y). The right finger is the
+         left finger rotated 180 degrees about z by its joint origin, so
+         both use identical geometry — except the diagonal piece, which
+         Franka mirrors explicitly. -->
+    <xacro:macro name="finger_collisions" params="diagonal_rpy">
+      <!-- screw mount -->
+      <collision>
+        <origin xyz="0 18.5e-3 11e-3" rpy="0 0 0" />
+        <geometry><box size="22e-3 15e-3 20e-3" /></geometry>
+      </collision>
+      <!-- carriage sledge -->
+      <collision>
+        <origin xyz="0 6.8e-3 2.2e-3" rpy="0 0 0" />
+        <geometry><box size="22e-3 8.8e-3 3.8e-3" /></geometry>
+      </collision>
+      <!-- diagonal finger -->
+      <collision>
+        <origin xyz="0 15.9e-3 28.35e-3" rpy="${diagonal_rpy}" />
+        <geometry><box size="17.5e-3 7e-3 23.5e-3" /></geometry>
+      </collision>
+      <!-- rubber tip: the part that actually touches the object. Its inner
+           face sits at y = 0 in the finger frame, so the finger joint
+           position IS the distance from the hand's centre plane to the pad. -->
+      <collision>
+        <origin xyz="0 7.58e-3 45.25e-3" rpy="0 0 0" />
+        <geometry><box size="17.5e-3 15.2e-3 18.5e-3" /></geometry>
+      </collision>
+    </xacro:macro>
+
+    <link name="${prefix}leftfinger">
+      <visual name="${prefix}leftfinger_visual">
+        <geometry><mesh filename="${mesh_pkg}/visual/finger.dae" /></geometry>
+      </visual>
+      <xacro:finger_collisions diagonal_rpy="${pi/6} 0 0" />
+      <xacro:franka_inertial data="${hand_data['leftfinger']}" />
+    </link>
+    <xacro:pbr_paint link="${prefix}leftfinger" tex="finger" metal_map="true" />
+
+    <link name="${prefix}rightfinger">
+      <visual name="${prefix}rightfinger_visual">
+        <geometry><mesh filename="${mesh_pkg}/visual/finger.dae" /></geometry>
+      </visual>
+      <xacro:finger_collisions diagonal_rpy="${-pi/6} 0 ${pi}" />
+      <xacro:franka_inertial data="${hand_data['rightfinger']}" />
+    </link>
+    <xacro:pbr_paint link="${prefix}rightfinger" tex="finger" metal_map="true" />
+
+    <!-- Both fingers are commanded independently by the gripper controller
+         (one position interface each, see panda_ros2_control.xacro), so the
+         <mimic> tag Franka uses on finger_joint2 is deliberately left out:
+         gz_ros2_control would otherwise refuse a command interface on a
+         mimicked joint. The supervisor always sends both the same width. -->
+    <joint name="${prefix}finger_joint1" type="prismatic">
+      <parent link="${prefix}hand" />
+      <child link="${prefix}leftfinger" />
+      <origin xyz="0 0 0.0584" rpy="0 0 0" />
+      <axis xyz="0 1 0" />
+      <limit lower="0.0" upper="0.04" effort="100" velocity="0.2" />
+      <dynamics damping="0.3" />
+    </joint>
+    <joint name="${prefix}finger_joint2" type="prismatic">
+      <parent link="${prefix}hand" />
+      <child link="${prefix}rightfinger" />
+      <origin xyz="0 0 0.0584" rpy="0 0 ${pi}" />
+      <axis xyz="0 1 0" />
+      <limit lower="0.0" upper="0.04" effort="100" velocity="0.2" />
+      <dynamics damping="0.3" />
+    </joint>
+
+    <!-- =================== the TCP, and only the TCP ================ -->
+    <!-- Everything in this project that says "the end-effector pose" means
+         this frame: between the fingertip pads, 103.4 mm from the hand
+         origin (Franka's value). Every Cartesian gain, target and error
+         metric is expressed here; if you move it you must re-tune. -->
+    <link name="${prefix}hand_tcp" />
+    <joint name="${prefix}hand_tcp_joint" type="fixed">
+      <parent link="${prefix}hand" />
+      <child link="${prefix}hand_tcp" />
+      <origin xyz="0 0 0.1034" rpy="0 0 0" />
+    </joint>
+
+  </xacro:macro>
+</robot>

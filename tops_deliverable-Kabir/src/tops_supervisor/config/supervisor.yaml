@@ -1,0 +1,69 @@
+# Supervisor thresholds. Every number here decides a state transition, so
+# every one of them is a claim the report has to defend.
+#
+# They are duplicated nowhere else: the FSM's Thresholds dataclass carries
+# the same defaults so the logic can be unit-tested without ROS, and this
+# file is what actually runs.
+/**:
+  ros__parameters:
+    controller_name: cartesian_impedance_controller
+    base_frame: panda_link0
+    rate_hz: 50.0
+
+    # --- mode switching ---------------------------------------------------
+    # Two independent arming conditions, because either alone has a failure
+    # mode. Distance alone is blind to an object that is not where vision
+    # said it was, which is the entire point of the project. Force alone
+    # leaves the arm stiff right up to the instant of contact, so the first
+    # touch happens at 800 N/m.
+    compliant_trigger_force: 1.5      # N
+    compliant_release_force: 0.8      # N -- the gap is the hysteresis
+    compliant_trigger_distance: 0.015 # m
+    compliant_release_distance: 0.025 # m
+
+    # --- interlocks --------------------------------------------------------
+    hard_force_limit: 15.0            # N; halt and retreat
+    retreat_distance: 0.050           # m
+
+    # The project plan's requirement is 100 ms, and on real hardware with a
+    # steady clock that is the number to use. It is deliberately looser here,
+    # and the reason is a property of simulation rather than of the robot.
+    #
+    # Everything in this stack runs on SIMULATION time, taken from Gazebo's
+    # /clock. Gazebo headless does not advance that clock smoothly: it steps
+    # physics as fast as the host allows and publishes /clock in jumps. A
+    # 30 Hz publisher can only emit once per jump, so the apparent gap
+    # between grasp targets becomes the clock granularity, not the
+    # publisher's period. At 100 ms the watchdog then fires on every trial
+    # during free-space servoing -- measuring how coarsely Gazebo ticks,
+    # which is not the thing under test.
+    #
+    # 0.5 s is still far shorter than any approach phase, so a genuinely
+    # dead perception feed is still caught well before the arm reaches the
+    # object. Set this back to 0.100 for hardware.
+    command_timeout: 0.500            # s without a target is a fault
+
+    # --- grasp gating -------------------------------------------------------
+    grasp_position_tolerance: 0.003   # m; the plan's terminal-accuracy target
+    min_confidence: 0.40              # below this, a target is ignored entirely
+    lift_height: 0.10                 # m
+
+    # --- how fast the commanded equilibrium travels -------------------------
+    # Not the arm's speed: the arm follows this through its virtual spring,
+    # lagging by (force needed)/(stiffness). Slewing rather than stepping is
+    # what keeps the commanded spring force inside the range the gains were
+    # designed for, and what stops the controller refusing a legitimate
+    # target as implausible.
+    approach_speed: 0.12              # m/s in free space
+    descent_speed: 0.05               # m/s during the final approach
+
+    # --- gripper ------------------------------------------------------------
+    # Commanded per-finger position when closing, so the jaw is asked for
+    # 2 x 18 = 36 mm. The objects are 45 to 55 mm cubes, so the fingers stall
+    # against them rather than meeting -- which is what generates grip force
+    # with position-controlled fingers, and what distinguishes "held" from
+    # "closed on nothing".
+    gripper_open: 0.039
+    gripper_closed: 0.018
+    gripper_grasp_margin: 0.004
+    gripper_still_speed: 0.002

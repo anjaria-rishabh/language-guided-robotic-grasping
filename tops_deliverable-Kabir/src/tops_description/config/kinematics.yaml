@@ -1,0 +1,43 @@
+# The single source of truth for "which frames and joints are the robot".
+#
+# Every other package reads these names from here rather than hard-coding
+# them. That is what makes the sim-to-real swap and the "rename the prefix"
+# case contained changes instead of a grep-and-pray exercise.
+/**:
+  ros__parameters:
+    robot:
+      base_frame: panda_link0
+      tip_frame: panda_hand_tcp
+      ft_sensor_frame: panda_ft_sensor_link
+      world_frame: world
+      camera_frame: camera_optical_frame
+
+      arm_joints:
+        - panda_joint1
+        - panda_joint2
+        - panda_joint3
+        - panda_joint4
+        - panda_joint5
+        - panda_joint6
+        - panda_joint7
+
+      finger_joints:
+        - panda_finger_joint1
+        - panda_finger_joint2
+
+      # Elbow-up, wrist-down. Doubles as the null-space posture target:
+      # the redundancy is spent staying near this pose, which keeps joint 4
+      # and joint 6 away from their limits during the approach.
+      home_position: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
+
+      # Manufacturer continuous-torque limits. Note 5 to 7 are 12 N.m, not
+      # 87 -- a single global clamp would be either useless on the big
+      # joints or unsafe on the small ones.
+      torque_limits: [87.0, 87.0, 87.0, 87.0, 12.0, 12.0, 12.0]
+
+      position_lower: [-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973]
+      position_upper: [2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973]
+      velocity_limits: [2.175, 2.175, 2.175, 2.175, 2.610, 2.610, 2.610]
+
+      gripper_open: 0.039
+      gripper_closed: 0.0

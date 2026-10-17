@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>tops_controllers</name>
+  <version>1.0.0</version>
+  <description>
+    The TOPS 2026 D2 deliverable: Cartesian impedance and admittance
+    controller plugins for ros2_control, running at 1 kHz on a 7-DOF Franka
+    Emika Panda. Includes null-space posture control, wrist wrench filtering
+    with anti-windup force regulation, slew-limited gain scheduling, and an
+    energy-tank passivity monitor.
+  </description>
+  <maintainer email="kartikeyharshkabir@gmail.com">Kabir</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>controller_interface</depend>
+  <depend>hardware_interface</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>tops_msgs</depend>
+  <depend>kdl_parser</depend>
+  <depend>orocos_kdl_vendor</depend>
+  <depend>eigen</depend>
+  <depend>eigen3_cmake_module</depend>
+  <depend>tf2_eigen</depend>
+
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>ros2_controllers</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_cmake_gmock</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <controller_interface plugin="${prefix}/tops_controllers_plugins.xml" />
+  </export>
+</package>

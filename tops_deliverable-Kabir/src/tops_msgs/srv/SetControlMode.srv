@@ -1,0 +1,24 @@
+# Request a gain set from the controller. The controller ramps toward the
+# requested stiffness at max_stiffness_rate rather than stepping, because
+# stepping stiffness while displaced injects energy (Theory 06 §6.9).
+
+uint8 MODE_STIFF     = 0    # free-space servoing gains
+uint8 MODE_COMPLIANT = 1    # contact-phase gains
+uint8 MODE_FLOAT     = 2    # gravity compensation only; zero stiffness
+uint8 MODE_HOLD      = 3    # freeze the equilibrium pose where it is
+
+# Compliant stiffness, but force regulation OFF.
+#
+# Force regulation belongs to the APPROACH: press into the object until the
+# contact force reaches the setpoint. Once the gripper has closed, that same
+# loop is actively harmful — it keeps commanding a downward press while the
+# arm is trying to lift, and because the approach axis also gives up most of
+# its position stiffness to make room for the force loop, the press wins.
+# Measured: the arm rose 6 mm and stalled with 94 mm of commanded error.
+uint8 MODE_GRASPED   = 4
+
+uint8 mode
+---
+bool   accepted
+string message
+float64 expected_ramp_time      # seconds until the new gains are fully applied
