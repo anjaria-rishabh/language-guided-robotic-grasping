@@ -1,0 +1,25 @@
+trial_id,mode,regime,seed,object_label,success,peak_force_n,mean_contact_force_n,exec_time_s,targeting_error_mm,final_state,fault,force_limit_tripped,watchdog_tripped,tank_min_energy_j,passivity_throttled,max_update_period_ms,missed_deadlines,contact_duration_s
+0,impedance,clean,0,red block,1,2.5323006075813606,1.4851372285062534,12.732000000000001,15.035121677107742,HOLD,,0,0,1.043420647799467,0,61.0,2390,29.09
+1,admittance,clean,0,red block,0,15.696815332540613,5.966208451360592,1.621,,ABORT,wrench_cutoff,1,0,,0,14.0,2323,0.16
+2,baseline,clean,0,red block,0,0.0,0.0,13.642000000000001,,ABORT,servo_timeout,0,0,,0,0.0,0,0.0
+3,impedance,sensor_noise,1000,red block,1,3.104912377398819,1.4880547647399727,12.638,12.892643767421303,HOLD,,0,0,1.0443667867737747,0,7.0,2691,33.82
+4,admittance,sensor_noise,1000,red block,0,8.921454989718528,5.402300882267975,13.911000000000001,,ABORT,servo_timeout,0,0,,0,69.0,2516,0.05
+5,baseline,sensor_noise,1000,red block,0,0.0,0.0,13.860000000000001,,ABORT,servo_timeout,0,0,,0,0.0,0,0.0
+6,impedance,calibration,2000,red block,1,2.6812777585558605,1.478930590527577,12.203000000000001,15.25531916278397,HOLD,,0,0,1.043703281196241,0,7.0,2634,31.59
+7,admittance,calibration,2000,red block,0,13.119200384390426,6.035048357333964,13.74,,ABORT,servo_timeout,0,0,,0,7.0,2545,0.07
+8,baseline,calibration,2000,red block,0,0.0,0.0,14.532,,ABORT,servo_timeout,0,0,,0,0.0,0,0.0
+9,impedance,displacement,3000,red block,1,3.1551703317456976,1.4948754748779047,12.777000000000001,15.193954614700003,HOLD,,0,0,1.029996502601295,0,8.0,2169,27.48
+10,admittance,displacement,3000,red block,0,13.741982448833465,7.815631979313741,13.951,,ABORT,servo_timeout,0,0,,0,8.0,2489,0.05
+11,baseline,displacement,3000,red block,0,0.0,0.0,14.562000000000001,,ABORT,servo_timeout,0,0,,0,0.0,0,0.0
+12,impedance,clean,1,green block,1,2.2600650321175157,1.5029351742647996,13.295000000000002,14.029404076655542,HOLD,,0,0,1.0234167629147348,0,44.0,2443,27.79
+13,admittance,clean,1,green block,0,14.813852696361314,8.1703220721426,13.685,,ABORT,servo_timeout,0,0,,0,8.0,2754,0.05
+14,baseline,clean,1,green block,0,0.0,0.0,13.811000000000002,,ABORT,servo_timeout,0,0,,0,0.0,0,0.0
+15,impedance,sensor_noise,1001,green block,1,2.672009668707961,1.4805846328160504,13.016,11.237493630370635,HOLD,,0,0,1.0453274937414774,0,7.0,2296,29.2
+16,admittance,sensor_noise,1001,green block,0,14.280821725522518,8.134598544467448,13.665000000000001,,ABORT,servo_timeout,0,0,,0,5.0,2051,0.05
+17,baseline,sensor_noise,1001,green block,0,0.0,0.0,13.645000000000001,,ABORT,servo_timeout,0,0,,0,0.0,0,0.0
+18,impedance,calibration,2001,green block,1,2.534697301933713,1.5013309103213437,12.349,14.106650202441868,HOLD,,0,0,1.0205605762301804,0,8.0,2531,31.37
+19,admittance,calibration,2001,green block,0,19.243717304474625,5.158159733110214,2.673,,ABORT,wrench_cutoff,1,0,,0,7.0,2832,0.1
+20,baseline,calibration,2001,green block,0,0.0,0.0,4.244000000000001,,ABORT,watchdog,0,1,,0,0.0,0,0.0
+21,impedance,displacement,3001,green block,1,3.24268237939216,1.481370967284865,12.389000000000001,14.098474307853989,HOLD,,0,0,1.0478306499512628,0,7.0,2537,28.03
+22,admittance,displacement,3001,green block,0,16.94324548806899,4.78253363413361,14.696000000000002,,ABORT,servo_timeout,0,0,,0,8.0,2963,0.13
+23,baseline,displacement,3001,green block,0,0.0,0.0,14.449000000000002,,ABORT,servo_timeout,0,0,,0,0.0,0,0.0

@@ -1,0 +1,7 @@
+# link0: Franka Emika Panda link0, base-colour texture
+newmtl paint
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.3 0.3 0.3
+Ns 40
+map_Kd link0_link0_BaseColor.png
