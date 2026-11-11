@@ -1,0 +1,52 @@
+tops_target_localizer:
+  ros__parameters:
+    use_sim_time: true
+    rgb_topic: /camera/image_raw
+    depth_topic: /camera/depth
+    camera_info_topic: /camera/camera_info
+    instruction_topic: /tops/autonomy/instruction
+    target_topic: /tops/autonomy/target_pose
+    base_frame: panda_link0
+    grounder: color  # demo HSV: choose 'zero_shot' for pretrained grounding
+    model: google/owlvit-base-patch32
+    min_score: 0.2
+    min_depth_m: 0.10
+    max_depth_m: 2.5
+    sync_slop_s: 0.07
+    camera_info_age_s: 0.0  # use latest calibration; camera info can be latched
+    tf_timeout_s: 0.08
+    publish_period_s: 0.1
+    max_image_age_s: 0.4
+    min_valid_pixels: 12
+
+tops_ee_tf_bridge:
+  ros__parameters:
+    use_sim_time: true
+    base_frame: panda_link0
+    ee_frame: panda_hand  # verify against current Panda URDF/TF
+    output_topic: /tops/autonomy/ee_pose
+    publish_rate_hz: 30.0
+    max_tf_age_s: 0.25
+
+tops_pbvs_reference:
+  ros__parameters:
+    use_sim_time: true
+    enabled: false  # explicit gate: computes and publishes zeros until enabled
+    require_servo_mode: true
+    target_topic: /tops/autonomy/target_pose
+    ee_topic: /tops/autonomy/ee_pose
+    mode_topic: /tops/autonomy/mode
+    twist_topic: /tops/autonomy/pbvs_twist
+    base_frame: panda_link0
+    update_rate_hz: 30.0
+    max_age_s: 0.3
+    pregrasp_offset_z_m: 0.12
+    desired_orientation_xyzw: [1.0, 0.0, 0.0, 0.0]
+    kp_linear: 0.8
+    kp_angular: 0.8
+    max_linear_mps: 0.07
+    max_angular_radps: 0.25
+    position_tolerance_m: 0.003
+    orientation_tolerance_rad: 0.05
+    workspace_min_xyz: [0.18, -0.5, 0.01]
+    workspace_max_xyz: [0.85, 0.5, 0.75]
